@@ -45,8 +45,8 @@ export async function handleExportBackup(request, env, backupKey) {
 			return createErrorResponse('无效的导出格式', `支持的格式：${validFormats.join(', ')}`, 400, request);
 		}
 
-		// 验证备份文件名格式
-		if (!backupKey || !backupKey.startsWith('backup_') || !backupKey.endsWith('.json')) {
+		// 验证备份文件名格式（严格正则，防止 KV 键注入）
+		if (!backupKey || !/^backup_\d{4}-\d{2}-\d{2}(?:_[\w-]+)?\.json$/.test(backupKey)) {
 			return createErrorResponse('无效的备份文件名', '备份文件名格式不正确', 400, request);
 		}
 
@@ -275,9 +275,10 @@ export async function handleExportBackup(request, env, backupKey) {
  *
  * @param {Request} request - HTTP请求对象
  * @param {Object} env - 环境变量对象
+ * @param {Object} [ctx] - Cloudflare Workers 执行上下文
  * @returns {Response} HTTP响应
  */
-export async function handleRestoreBackup(request, env) {
+export async function handleRestoreBackup(request, env, ctx) {
 	const logger = getLogger(env);
 
 	try {
@@ -293,8 +294,8 @@ export async function handleRestoreBackup(request, env) {
 				return createErrorResponse('备份键缺失', '请提供要恢复的备份键名', 400, request);
 			}
 
-			// 手动验证备份键格式
-			if (!backupKey.startsWith('backup_') || !backupKey.endsWith('.json')) {
+			// 手动验证备份键格式（严格正则，防止 KV 键注入）
+			if (!/^backup_\d{4}-\d{2}-\d{2}(?:_[\w-]+)?\.json$/.test(backupKey)) {
 				return createErrorResponse('备份键格式错误', '备份键格式不正确', 400, request);
 			}
 		} else if (request.method === 'POST') {
@@ -373,7 +374,7 @@ export async function handleRestoreBackup(request, env) {
 		// 恢复密钥到主存储（使用加密保存）
 		// 🔄 立即备份（恢复操作使用 immediate: true 强制立即备份）
 		// 注意：saveSecretsToKV 内部会自动调用 saveDataHash 和 triggerBackup
-		await saveSecretsToKV(env, backupData.secrets, 'backup-restored', { immediate: true });
+		await saveSecretsToKV(env, backupData.secrets, 'backup-restored', { immediate: true }, ctx);
 
 		logger.info('✅ 备份恢复完成', {
 			backupKey,

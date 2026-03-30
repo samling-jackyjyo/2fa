@@ -9,7 +9,8 @@ import {
   BACKUP_CONFIG,
   getBackupManager,
   triggerBackup,
-  executeImmediateBackup
+  executeImmediateBackup,
+  sanitizeMaxBackups
 } from '../../src/utils/backup.js';
 
 // ==================== Mock 模块 ====================
@@ -41,6 +42,11 @@ vi.mock('../../src/utils/monitoring.js', () => ({
       captureError: vi.fn()
     })
   }))
+}));
+
+// Mock webdav
+vi.mock('../../src/utils/webdav.js', () => ({
+  pushToAllWebDAV: vi.fn(async () => ({ success: true }))
 }));
 
 // ==================== Mock 工具 ====================
@@ -94,10 +100,37 @@ describe('Backup System', () => {
 
   describe('BACKUP_CONFIG', () => {
     it('应该有正确的配置值', () => {
-      expect(BACKUP_CONFIG.DEBOUNCE_INTERVAL).toBe(5 * 60 * 1000); // 5 minutes
       expect(BACKUP_CONFIG.MAX_BACKUPS).toBe(100);
+      expect(BACKUP_CONFIG.AUTO_CLEANUP_ENABLED).toBe(true);
       expect(BACKUP_CONFIG.EVENT_DRIVEN_ENABLED).toBe(true);
       expect(BACKUP_CONFIG.SCHEDULED_BACKUP_ENABLED).toBe(true);
+    });
+  });
+
+  describe('sanitizeMaxBackups', () => {
+    it('合法整数应原样返回', () => {
+      expect(sanitizeMaxBackups(0)).toBe(0);
+      expect(sanitizeMaxBackups(50)).toBe(50);
+      expect(sanitizeMaxBackups(1000)).toBe(1000);
+    });
+
+    it('负数应回退默认值', () => {
+      expect(sanitizeMaxBackups(-1)).toBe(100);
+    });
+
+    it('超范围应回退默认值', () => {
+      expect(sanitizeMaxBackups(1001)).toBe(100);
+    });
+
+    it('小数应回退默认值', () => {
+      expect(sanitizeMaxBackups(3.5)).toBe(100);
+    });
+
+    it('非数字类型应回退默认值', () => {
+      expect(sanitizeMaxBackups(null)).toBe(100);
+      expect(sanitizeMaxBackups(undefined)).toBe(100);
+      expect(sanitizeMaxBackups('50')).toBe(100);
+      expect(sanitizeMaxBackups(NaN)).toBe(100);
     });
   });
 
@@ -107,53 +140,94 @@ describe('Backup System', () => {
       const manager = new BackupManager(env);
 
       expect(manager.env).toBe(env);
-      expect(manager.lastBackupTime).toBe(0);
-      expect(manager.pendingBackup).toBeNull();
       expect(manager.backupInProgress).toBe(false);
+      expect(manager.pendingSecrets).toBeNull();
+      expect(manager.pendingReason).toBeNull();
       expect(manager.logger).toBeDefined();
     });
   });
 
-  describe('shouldBackup - 防抖检查', () => {
-    it('首次备份应该返回 true', () => {
+  describe('并发控制 - 队列机制', () => {
+    it('首次触发应该立即执行', async () => {
       const env = createMockEnv();
       const manager = new BackupManager(env);
+      const secrets = createTestSecrets(1);
 
-      expect(manager.shouldBackup()).toBe(true);
+      const result = await manager.triggerBackup(secrets, { reason: 'test' });
+
+      expect(result.success).toBe(true);
     });
 
-    it('距离上次备份不到5分钟应该返回 false', () => {
+    it('备份进行中时应该暂存数据', async () => {
       const env = createMockEnv();
       const manager = new BackupManager(env);
+      const secrets = createTestSecrets(1);
 
-      // 设置上次备份时间为现在
-      manager.lastBackupTime = Date.now();
+      manager.backupInProgress = true;
 
-      // 立即检查（不到5分钟）
-      expect(manager.shouldBackup()).toBe(false);
+      const result = await manager.triggerBackup(secrets, { reason: 'test' });
+
+      expect(result).toMatchObject({ queued: true });
+      expect(manager.pendingSecrets).toEqual(secrets);
     });
 
-    it('距离上次备份超过5分钟应该返回 true', () => {
+    it('暂存数据应该在备份完成后执行', async () => {
       const env = createMockEnv();
       const manager = new BackupManager(env);
+      const secrets1 = createTestSecrets(1);
+      const secrets2 = createTestSecrets(2);
 
-      // 设置上次备份时间为6分钟前
-      manager.lastBackupTime = Date.now() - (6 * 60 * 1000);
+      // Spy on executeBackup
+      const executeSpy = vi.spyOn(manager, 'executeBackup');
 
-      expect(manager.shouldBackup()).toBe(true);
+      // Start first backup; while it runs, queue a second
+      const firstPromise = manager.executeBackup(secrets1, 'first');
+
+      // Simulate queuing during backup
+      manager.pendingSecrets = secrets2;
+      manager.pendingReason = 'queued';
+
+      await firstPromise;
+
+      // The finally block should trigger a compensating backup
+      // Wait for async compensating backup
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(executeSpy).toHaveBeenCalledTimes(2);
     });
 
-    it('应该记录防抖日志', () => {
+    it('补偿备份应该复用暂存的 ctx 并触发 waitUntil', async () => {
+      const { pushToAllWebDAV } = await import('../../src/utils/webdav.js');
+      pushToAllWebDAV.mockResolvedValue({ success: true });
+
       const env = createMockEnv();
       const manager = new BackupManager(env);
-      manager.lastBackupTime = Date.now();
+      const secrets1 = createTestSecrets(1);
+      const secrets2 = createTestSecrets(2);
+      const ctx = { waitUntil: vi.fn() };
 
-      manager.shouldBackup();
+      // Start first backup (with ctx)
+      const firstPromise = manager.executeBackup(secrets1, 'first', ctx);
 
-      expect(manager.logger.debug).toHaveBeenCalledWith(
-        expect.stringContaining('备份防抖'),
-        expect.any(Object)
-      );
+      // Simulate queuing during backup — stash ctx alongside data
+      manager.pendingSecrets = secrets2;
+      manager.pendingReason = 'queued';
+      manager.pendingCtx = ctx;
+
+      // First backup's waitUntil call count before compensating
+      await firstPromise;
+      const callsAfterFirst = ctx.waitUntil.mock.calls.length;
+      expect(callsAfterFirst).toBeGreaterThanOrEqual(1);
+
+      // Wait for async compensating backup to finish
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Compensating backup should have called waitUntil again
+      expect(ctx.waitUntil.mock.calls.length).toBeGreaterThan(callsAfterFirst);
+      // Each waitUntil call receives a Promise
+      ctx.waitUntil.mock.calls.forEach(([arg]) => {
+        expect(arg).toBeInstanceOf(Promise);
+      });
     });
   });
 
@@ -231,16 +305,14 @@ describe('Backup System', () => {
       expect(manager.backupInProgress).toBe(false);
     });
 
-    it('应该更新 lastBackupTime', async () => {
+    it('应该在备份完成后重置 backupInProgress', async () => {
       const env = createMockEnv();
       const manager = new BackupManager(env);
       const secrets = createTestSecrets(1);
 
-      expect(manager.lastBackupTime).toBe(0);
-
       await manager.executeBackup(secrets, 'test');
 
-      expect(manager.lastBackupTime).toBeGreaterThan(0);
+      expect(manager.backupInProgress).toBe(false);
     });
 
     it('应该创建正确的备份数据结构', async () => {
@@ -385,45 +457,7 @@ describe('Backup System', () => {
       );
     });
 
-    it('应该调度延迟备份（防抖）', async () => {
-      const env = createMockEnv();
-      const manager = new BackupManager(env);
-      const secrets = createTestSecrets(1);
-
-      // 第一次备份
-      await manager.executeBackup(secrets, 'first');
-
-      // 立即触发第二次（应该被防抖）
-      const result = await manager.triggerBackup(secrets, { reason: 'second' });
-
-      expect(result).toMatchObject({
-        scheduled: true,
-        delay: expect.any(Number)
-      });
-      expect(manager.pendingBackup).not.toBeNull();
-    });
-
-    it('immediate=true 应该立即执行（忽略防抖）', async () => {
-      const env = createMockEnv();
-      const manager = new BackupManager(env);
-      const secrets = createTestSecrets(1);
-
-      // 第一次备份
-      await manager.executeBackup(secrets, 'first');
-
-      // 立即触发第二次（immediate=true）
-      const result = await manager.triggerBackup(secrets, {
-        immediate: true,
-        reason: 'second'
-      });
-
-      expect(result).toMatchObject({
-        success: true,
-        secretCount: 1
-      });
-    });
-
-    it('备份进行中时应该跳过', async () => {
+    it('备份进行中时应该暂存并返回 queued', async () => {
       const env = createMockEnv();
       const manager = new BackupManager(env);
       const secrets = createTestSecrets(1);
@@ -433,7 +467,8 @@ describe('Backup System', () => {
 
       const result = await manager.triggerBackup(secrets, { reason: 'test' });
 
-      expect(result).toBeNull();
+      expect(result).toMatchObject({ queued: true });
+      expect(manager.pendingSecrets).toEqual(secrets);
       expect(manager.logger.debug).toHaveBeenCalledWith(
         expect.stringContaining('备份已在进行中')
       );
@@ -460,46 +495,41 @@ describe('Backup System', () => {
       BACKUP_CONFIG.EVENT_DRIVEN_ENABLED = originalConfig;
     });
 
-    it('应该取消之前的待处理备份', async () => {
+    it('immediate=true 在事件驱动未启用时仍应执行', async () => {
+      const originalConfig = BACKUP_CONFIG.EVENT_DRIVEN_ENABLED;
+      BACKUP_CONFIG.EVENT_DRIVEN_ENABLED = false;
+
       const env = createMockEnv();
       const manager = new BackupManager(env);
       const secrets = createTestSecrets(1);
 
-      // 第一次备份
-      await manager.executeBackup(secrets, 'first');
+      const result = await manager.triggerBackup(secrets, {
+        immediate: true,
+        reason: 'forced'
+      });
 
-      // 触发第一次延迟备份
-      const result1 = await manager.triggerBackup(secrets, { reason: 'second' });
-      const firstPending = manager.pendingBackup;
+      // immediate bypasses the EVENT_DRIVEN_ENABLED check
+      expect(result).toMatchObject({
+        success: true,
+        secretCount: 1
+      });
 
-      // 触发第二次延迟备份（应该取消第一次）
-      const result2 = await manager.triggerBackup(secrets, { reason: 'third' });
-
-      expect(result1.scheduled).toBe(true);
-      expect(result2.scheduled).toBe(true);
-      expect(manager.pendingBackup).not.toBe(firstPending);
+      BACKUP_CONFIG.EVENT_DRIVEN_ENABLED = originalConfig;
     });
 
-    it('延迟备份应该在延迟后执行', async () => {
+    it('连续触发不在进行中时应该每次都立即执行', async () => {
       const env = createMockEnv();
       const manager = new BackupManager(env);
       const secrets = createTestSecrets(1);
 
-      // 第一次备份
-      await manager.executeBackup(secrets, 'first');
+      const result1 = await manager.triggerBackup(secrets, { reason: 'first' });
+      expect(result1.success).toBe(true);
 
-      // 触发延迟备份
-      const executeSpy = vi.spyOn(manager, 'executeBackup');
-      const result = await manager.triggerBackup(secrets, { reason: 'delayed' });
+      const result2 = await manager.triggerBackup(secrets, { reason: 'second' });
+      expect(result2.success).toBe(true);
 
-      expect(result.scheduled).toBe(true);
-      expect(manager.pendingBackup).not.toBeNull();
-
-      // 快进到延迟时间
-      await vi.advanceTimersByTimeAsync(result.delay + 100);
-
-      // 验证备份被调用
-      expect(executeSpy).toHaveBeenCalledWith(secrets, 'delayed');
+      // Both executed immediately (no debounce)
+      expect(env.SECRETS_KV.put).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -510,8 +540,8 @@ describe('Backup System', () => {
 
       const key = manager._generateBackupKey();
 
-      // 格式: backup_YYYY-MM-DD_HH-MM-SS.json
-      expect(key).toMatch(/^backup_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.json$/);
+      // 格式: backup_YYYY-MM-DD_HH-MM-SS-mmm-UTC-xxxx.json（含毫秒和UTC标记）
+      expect(key).toMatch(/^backup_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-\d{3}-UTC-[a-z0-9]{4}\.json$/);
     });
 
     it('应该包含当前日期和时间', () => {
@@ -591,9 +621,11 @@ describe('Backup System', () => {
       ];
       env.SECRETS_KV.list.mockResolvedValueOnce({ keys: mockKeys });
 
-      // 修改限制为1，只保留最新的
-      const originalMax = BACKUP_CONFIG.MAX_BACKUPS;
-      BACKUP_CONFIG.MAX_BACKUPS = 1;
+      // 通过 KV 设置限制为1，只保留最新的
+      env.SECRETS_KV.get.mockImplementation(async (key) => {
+        if (key === 'settings') return JSON.stringify({ maxBackups: 1 });
+        return null;
+      });
 
       await manager._cleanupOldBackupsAsync();
 
@@ -601,9 +633,83 @@ describe('Backup System', () => {
       expect(env.SECRETS_KV.delete).toHaveBeenCalledWith('backup_2024-01-01_12-00-00.json');
       expect(env.SECRETS_KV.delete).toHaveBeenCalledWith('backup_2024-01-02_12-00-00.json');
       expect(env.SECRETS_KV.delete).not.toHaveBeenCalledWith('backup_2024-01-03_12-00-00.json');
+    });
 
-      // 恢复配置
-      BACKUP_CONFIG.MAX_BACKUPS = originalMax;
+    it('应该从 KV 设置读取用户自定义的 maxBackups', async () => {
+      const env = createMockEnv();
+      const manager = new BackupManager(env);
+
+      // 用户设置 maxBackups 为 2
+      env.SECRETS_KV.get.mockImplementation(async (key) => {
+        if (key === 'settings') return JSON.stringify({ maxBackups: 2 });
+        return null;
+      });
+
+      const mockKeys = Array.from({ length: 5 }, (_, i) => ({
+        name: `backup_2024-01-0${i + 1}_12-00-00.json`
+      }));
+      env.SECRETS_KV.list.mockResolvedValueOnce({ keys: mockKeys });
+
+      await manager._cleanupOldBackupsAsync();
+
+      // 保留最新2个，删除3个
+      expect(env.SECRETS_KV.delete).toHaveBeenCalledTimes(3);
+    });
+
+    it('maxBackups 设为 0 时不应清理', async () => {
+      const env = createMockEnv();
+      const manager = new BackupManager(env);
+
+      env.SECRETS_KV.get.mockImplementation(async (key) => {
+        if (key === 'settings') return JSON.stringify({ maxBackups: 0 });
+        return null;
+      });
+
+      await manager._cleanupOldBackupsAsync();
+
+      expect(env.SECRETS_KV.list).not.toHaveBeenCalled();
+      expect(env.SECRETS_KV.delete).not.toHaveBeenCalled();
+    });
+
+    it('KV 设置读取失败时应回退到默认值', async () => {
+      const env = createMockEnv();
+      const manager = new BackupManager(env);
+
+      env.SECRETS_KV.get.mockImplementation(async (key) => {
+        if (key === 'settings') throw new Error('KV read error');
+        return null;
+      });
+
+      // 50 个备份，默认 100，不应清理
+      const mockKeys = Array.from({ length: 50 }, (_, i) => ({
+        name: `backup_2024-01-${String(i + 1).padStart(2, '0')}_12-00-00.json`
+      }));
+      env.SECRETS_KV.list.mockResolvedValueOnce({ keys: mockKeys });
+
+      await manager._cleanupOldBackupsAsync();
+
+      expect(env.SECRETS_KV.delete).not.toHaveBeenCalled();
+    });
+
+    it('KV 中 maxBackups 为非法值时应回退到默认值', async () => {
+      const env = createMockEnv();
+      const manager = new BackupManager(env);
+
+      // KV 被手工写入负数
+      env.SECRETS_KV.get.mockImplementation(async (key) => {
+        if (key === 'settings') return JSON.stringify({ maxBackups: -5 });
+        return null;
+      });
+
+      // 50 个备份，回退默认 100，不应清理
+      const mockKeys = Array.from({ length: 50 }, (_, i) => ({
+        name: `backup_2024-01-${String(i + 1).padStart(2, '0')}_12-00-00.json`
+      }));
+      env.SECRETS_KV.list.mockResolvedValueOnce({ keys: mockKeys });
+
+      await manager._cleanupOldBackupsAsync();
+
+      expect(env.SECRETS_KV.delete).not.toHaveBeenCalled();
     });
 
     it('应该只清理 backup_ 开头的文件', async () => {
@@ -668,70 +774,41 @@ describe('Backup System', () => {
     });
   });
 
-  describe('getLastBackupTime - 获取上次备份时间', () => {
-    it('应该返回上次备份时间', async () => {
+  describe('pendingSecrets - 暂存机制', () => {
+    it('初始状态应该为 null', () => {
+      const env = createMockEnv();
+      const manager = new BackupManager(env);
+
+      expect(manager.pendingSecrets).toBeNull();
+      expect(manager.pendingReason).toBeNull();
+    });
+
+    it('备份进行中触发时应该暂存', async () => {
       const env = createMockEnv();
       const manager = new BackupManager(env);
       const secrets = createTestSecrets(1);
 
-      expect(manager.getLastBackupTime()).toBe(0);
+      manager.backupInProgress = true;
 
-      await manager.executeBackup(secrets, 'test');
+      await manager.triggerBackup(secrets, { reason: 'queued' });
 
-      expect(manager.getLastBackupTime()).toBeGreaterThan(0);
-    });
-  });
-
-  describe('getTimeSinceLastBackup - 获取距离上次备份的时间', () => {
-    it('从未备份时应该返回 null', () => {
-      const env = createMockEnv();
-      const manager = new BackupManager(env);
-
-      expect(manager.getTimeSinceLastBackup()).toBeNull();
+      expect(manager.pendingSecrets).toEqual(secrets);
+      expect(manager.pendingReason).toBe('queued');
     });
 
-    it('应该返回正确的时间差', async () => {
+    it('多次暂存应该只保留最新的数据', async () => {
       const env = createMockEnv();
       const manager = new BackupManager(env);
-      const secrets = createTestSecrets(1);
+      const secrets1 = createTestSecrets(1);
+      const secrets2 = createTestSecrets(2);
 
-      await manager.executeBackup(secrets, 'test');
+      manager.backupInProgress = true;
 
-      // 前进2分钟
-      vi.advanceTimersByTime(2 * 60 * 1000);
+      await manager.triggerBackup(secrets1, { reason: 'first' });
+      await manager.triggerBackup(secrets2, { reason: 'second' });
 
-      const timeSince = manager.getTimeSinceLastBackup();
-      expect(timeSince).toBeGreaterThanOrEqual(2 * 60 * 1000);
-    });
-  });
-
-  describe('cancelPendingBackup - 取消待处理的备份', () => {
-    it('应该取消待处理的备份', async () => {
-      const env = createMockEnv();
-      const manager = new BackupManager(env);
-      const secrets = createTestSecrets(1);
-
-      // 第一次备份
-      await manager.executeBackup(secrets, 'first');
-
-      // 触发延迟备份
-      await manager.triggerBackup(secrets, { reason: 'second' });
-      expect(manager.pendingBackup).not.toBeNull();
-
-      // 取消
-      manager.cancelPendingBackup();
-
-      expect(manager.pendingBackup).toBeNull();
-      expect(manager.logger.debug).toHaveBeenCalledWith(
-        expect.stringContaining('已取消待处理的备份')
-      );
-    });
-
-    it('没有待处理备份时不应报错', () => {
-      const env = createMockEnv();
-      const manager = new BackupManager(env);
-
-      expect(() => manager.cancelPendingBackup()).not.toThrow();
+      expect(manager.pendingSecrets).toEqual(secrets2);
+      expect(manager.pendingReason).toBe('second');
     });
   });
 
@@ -817,21 +894,19 @@ describe('Backup System', () => {
       const result1 = await triggerBackup(secrets, env, { reason: 'first' });
       expect(result1.success).toBe(true);
 
-      // 2. 立即触发第二次（应该被防抖）
+      // 2. 再次触发（不在进行中，也应该立即执行）
       const result2 = await triggerBackup(secrets, env, { reason: 'second' });
-      expect(result2.scheduled).toBe(true);
+      expect(result2.success).toBe(true);
 
-      // 3. 立即备份（忽略防抖）
+      // 3. 立即备份
       const result3 = await triggerBackup(secrets, env, {
         immediate: true,
         reason: 'third'
       });
       expect(result3.success).toBe(true);
 
-      // 4. 获取备份时间
-      const manager = getBackupManager(env);
-      expect(manager.getLastBackupTime()).toBeGreaterThan(0);
-      expect(manager.getTimeSinceLastBackup()).toBeGreaterThanOrEqual(0);
+      // 4. 验证 KV 写入 3 次
+      expect(env.SECRETS_KV.put).toHaveBeenCalledTimes(3);
     });
 
     it('加密和明文备份对比', async () => {
@@ -848,31 +923,23 @@ describe('Backup System', () => {
       expect(result2.encrypted).toBe(false);
     });
 
-    it('防抖和立即备份混合场景', async () => {
+    it('并发备份场景', async () => {
       const env = createMockEnv();
       const manager = getBackupManager(env);
-      const secrets = createTestSecrets(1);
+      const secrets1 = createTestSecrets(1);
+      const secrets2 = createTestSecrets(2);
 
       // 1. 首次备份
-      await manager.executeBackup(secrets, 'first');
-      const firstTime = manager.getLastBackupTime();
+      const result1 = await manager.executeBackup(secrets1, 'first');
+      expect(result1.success).toBe(true);
 
-      // 快进1毫秒确保时间不同
+      // 2. 第二次备份（不在进行中，立即执行）
       vi.advanceTimersByTime(1);
-
-      // 2. 触发防抖备份
-      const result1 = await manager.triggerBackup(secrets, { reason: 'debounced' });
-      expect(result1.scheduled).toBe(true);
-
-      // 3. 立即备份（应该忽略防抖）
-      const result2 = await manager.triggerBackup(secrets, {
-        immediate: true,
-        reason: 'immediate'
-      });
+      const result2 = await manager.triggerBackup(secrets2, { reason: 'second' });
       expect(result2.success).toBe(true);
 
-      // 4. 验证备份时间更新
-      expect(manager.getLastBackupTime()).toBeGreaterThan(firstTime);
+      // 3. 验证 KV 存储了两次
+      expect(env.SECRETS_KV.put).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -982,17 +1049,17 @@ describe('Backup System', () => {
       vi.useFakeTimers(); // 恢复假计时器
     });
 
-    it('防抖检查应该高效', () => {
+    it('备份文件名生成应该高效', () => {
       const env = createMockEnv();
       const manager = new BackupManager(env);
 
       const start = performance.now();
       for (let i = 0; i < 1000; i++) {
-        manager.shouldBackup();
+        manager._generateBackupKey();
       }
       const end = performance.now();
 
-      expect(end - start).toBeLessThan(10); // 1000次 < 10ms
+      expect(end - start).toBeLessThan(100); // 1000次 < 100ms
     });
   });
 });

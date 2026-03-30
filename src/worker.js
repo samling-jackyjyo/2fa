@@ -19,6 +19,9 @@ import { encryptData } from './utils/encryption.js';
 import { getLogger, createRequestLogger, PerformanceTimer } from './utils/logger.js';
 import { getMonitoring, ErrorSeverity } from './utils/monitoring.js';
 import { KV_KEYS } from './utils/constants.js';
+import { pushToAllWebDAV } from './utils/webdav.js';
+import { pushToAllS3 } from './utils/s3.js';
+import { sanitizeMaxBackups } from './utils/backup.js';
 
 /**
  * 获取所有密钥
@@ -220,11 +223,31 @@ export async function saveDataHash(env, secrets) {
 }
 
 /**
- * 清理旧备份文件（保留最新100个备份）
+ * 清理旧备份文件（根据用户设置保留备份数量，默认100个）
  * @param {Object} env - 环境变量对象
  */
 async function cleanupOldBackups(env) {
 	const logger = getLogger(env);
+
+	// 读取用户配置的 maxBackups
+	let maxBackups = 100;
+	try {
+		const raw = await env.SECRETS_KV.get('settings');
+		if (raw) {
+			const settings = JSON.parse(raw);
+			if (settings.maxBackups !== undefined) {
+				maxBackups = sanitizeMaxBackups(settings.maxBackups);
+			}
+		}
+	} catch {
+		// 读取失败使用默认值
+	}
+
+	// 0 表示不限制
+	if (maxBackups === 0) {
+		logger.debug('备份数量不限制（maxBackups=0），跳过清理');
+		return;
+	}
 
 	try {
 		const list = await env.SECRETS_KV.list();
@@ -234,10 +257,10 @@ async function cleanupOldBackups(env) {
 			totalBackups: backupKeys.length,
 		});
 
-		if (backupKeys.length <= 100) {
+		if (backupKeys.length <= maxBackups) {
 			logger.debug('备份文件数量正常', {
 				current: backupKeys.length,
-				max: 100,
+				max: maxBackups,
 			});
 			return;
 		}
@@ -245,9 +268,9 @@ async function cleanupOldBackups(env) {
 		// 按文件名排序（文件名包含日期，最新的在前）
 		backupKeys.sort((a, b) => b.name.localeCompare(a.name));
 
-		// 保留最新的100个备份，删除其余的
-		const keysToKeep = backupKeys.slice(0, 100);
-		const keysToDelete = backupKeys.slice(100);
+		// 保留最新的备份，删除其余的
+		const keysToKeep = backupKeys.slice(0, maxBackups);
+		const keysToDelete = backupKeys.slice(maxBackups);
 
 		logger.info('开始清理旧备份', {
 			toKeep: keysToKeep.length,
@@ -278,7 +301,7 @@ async function cleanupOldBackups(env) {
  * @returns {Response} HTTP响应
  */
 export default {
-	async fetch(request, env, _ctx) {
+	async fetch(request, env, ctx) {
 		// 初始化日志和监控
 		const logger = getLogger(env);
 		const requestLogger = createRequestLogger(logger);
@@ -313,7 +336,7 @@ export default {
 			}
 
 			// 处理实际请求
-			const response = await handleRequest(request, env);
+			const response = await handleRequest(request, env, ctx);
 
 			// 记录响应
 			requestLogger.logResponse(timer, response);
@@ -380,7 +403,7 @@ export default {
 	 * @param {Object} env - 环境变量对象
 	 * @param {Object} ctx - 执行上下文
 	 */
-	async scheduled(event, env, _ctx) {
+	async scheduled(event, env, ctx) {
 		const logger = getLogger(env);
 		const timer = new PerformanceTimer('ScheduledBackup', logger);
 
@@ -452,11 +475,12 @@ export default {
 				secrets: secrets,
 			};
 
-			// 生成备份文件名（按日期和时间戳）
+			// 生成备份文件名（含毫秒，避免同秒覆盖）
 			const now = new Date();
 			const dateStr = now.toISOString().split('T')[0];
-			const timeStr = now.toISOString().split('T')[1].split('.')[0].replace(/:/g, '-');
-			const backupKey = `backup_${dateStr}_${timeStr}.json`;
+			const timeStr = now.toISOString().split('T')[1].replace(/:/g, '-').replace('.', '-').replace('Z', '');
+			const rand = Math.random().toString(36).slice(2, 6);
+			const backupKey = `backup_${dateStr}_${timeStr}-${rand}.json`;
 
 			// 🔒 加密备份数据（如果配置了 ENCRYPTION_KEY）
 			let backupContent;
@@ -483,6 +507,12 @@ export default {
 			await env.SECRETS_KV.put(backupKey, backupContent);
 			timer.checkpoint('备份已保存');
 
+			// WebDAV 自动推送（使用 waitUntil 确保 Worker 不会在推送完成前退出）
+			ctx.waitUntil(pushToAllWebDAV(backupKey, backupContent, env));
+
+			// S3 自动推送
+			ctx.waitUntil(pushToAllS3(backupKey, backupContent, env));
+
 			logger.info('自动备份完成', {
 				backupKey,
 				secretCount: secrets.length,
@@ -494,7 +524,7 @@ export default {
 			await saveDataHash(env, secrets);
 			timer.checkpoint('哈希已更新');
 
-			// 清理旧备份（保留最新100个备份）
+			// 清理旧备份（根据用户设置保留数量）
 			logger.debug('清理旧备份文件');
 			await cleanupOldBackups(env);
 			timer.checkpoint('清理完成');

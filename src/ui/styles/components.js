@@ -12,7 +12,7 @@ export function getComponentStyles() {
 
     .secret-card {
       background: var(--card-bg);
-      border-radius: 12px;
+      border-radius: var(--radius-md);
       padding: 16px;
       padding-top: 20px;
       border: 1px solid var(--card-border);
@@ -32,7 +32,6 @@ export function getComponentStyles() {
     .secret-card:hover {
       border-color: var(--card-hover-border);
       box-shadow: var(--card-hover-shadow);
-      transform: translateY(-1px);
     }
 
     .secret-header {
@@ -124,7 +123,7 @@ export function getComponentStyles() {
       right: -8px;
       background: var(--menu-bg);
       border: 1px solid var(--menu-border);
-      border-radius: 8px;
+      border-radius: var(--radius-sm);
       min-width: 80px;
       width: fit-content;
       box-shadow: var(--menu-shadow);
@@ -193,12 +192,12 @@ export function getComponentStyles() {
     }
 
     .qr-btn {
-      border-color: #9b59b6;
-      color: #9b59b6;
+      border-color: var(--qr-btn-color);
+      color: var(--qr-btn-color);
     }
 
     .qr-btn:hover {
-      background: #9b59b6;
+      background: var(--qr-btn-hover-bg);
       color: var(--btn-primary-text);
     }
 
@@ -348,6 +347,160 @@ export function getComponentStyles() {
       width: 0%;
     }
 
+    /* ========== 同步目标卡片 ========== */
+    .dest-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-primary);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+      transition: opacity 0.2s ease;
+    }
+
+    .dest-card-disabled {
+      opacity: 0.55;
+    }
+
+    .dest-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .dest-card-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .dest-card-name {
+      display: block;
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+    }
+
+    .dest-card-url {
+      display: block;
+      font-size: 12px;
+      color: var(--text-tertiary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .dest-card-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .dest-status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .dest-status-dot-green {
+      background: #22c55e;
+    }
+
+    .dest-status-dot-red {
+      background: #ef4444;
+    }
+
+    .dest-status-dot-gray {
+      background: #9ca3af;
+    }
+
+    .dest-status-text {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .dest-card-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-sm {
+      padding: 4px 12px;
+      font-size: 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      border: 1px solid var(--border-primary);
+      background: var(--bg-primary);
+      color: var(--text-secondary);
+      transition: all 0.2s ease;
+    }
+
+    .btn-sm:hover {
+      background: var(--bg-hover, var(--bg-secondary));
+    }
+
+    .btn-danger-outline {
+      border-color: var(--danger, #ef4444);
+      color: var(--danger, #ef4444);
+    }
+
+    .btn-danger-outline:hover {
+      background: var(--danger-light, rgba(239, 68, 68, 0.1));
+    }
+
+    /* 开关切换 */
+    .dest-toggle {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 22px;
+      flex-shrink: 0;
+      margin-left: 10px;
+    }
+
+    .dest-toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .dest-toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: #ccc;
+      border-radius: 22px;
+      transition: 0.3s;
+    }
+
+    .dest-toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      bottom: 3px;
+      background: white;
+      border-radius: 50%;
+      transition: 0.3s;
+    }
+
+    .dest-toggle input:checked + .dest-toggle-slider {
+      background: var(--primary);
+    }
+
+    .dest-toggle input:checked + .dest-toggle-slider:before {
+      transform: translateX(18px);
+    }
+
     /* ========== 页面底部 Footer ========== */
     .page-footer {
       margin-top: 40px;
@@ -455,7 +608,6 @@ export function getComponentStyles() {
     }
 
     .pwa-install-btn-float:hover {
-      transform: translateY(-2px) scale(1.05);
       box-shadow: var(--shadow-lg);
       background: var(--theme-toggle-hover);
     }
@@ -485,7 +637,7 @@ export function getComponentStyles() {
       top: 0;
       left: 0;
       right: 0;
-      background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+      background: var(--warning-dark);
       color: white;
       padding: 12px 20px;
       box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
@@ -504,23 +656,11 @@ export function getComponentStyles() {
 
     .offline-banner-icon {
       font-size: 20px;
-      animation: pulse 2s infinite;
     }
 
     .offline-banner-text {
       font-size: 14px;
       font-weight: 600;
-    }
-
-    @keyframes pulse {
-      0%, 100% {
-        opacity: 1;
-        transform: scale(1);
-      }
-      50% {
-        opacity: 0.8;
-        transform: scale(0.95);
-      }
     }
 
     /* 离线模式下的页面样式调整 */

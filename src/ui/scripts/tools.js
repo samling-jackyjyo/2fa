@@ -11,6 +11,8 @@ import { getBase32ToolCode } from './tools/base32Tool.js';
 import { getTimestampToolCode } from './tools/timestampTool.js';
 import { getKeyCheckerToolCode } from './tools/keyChecker.js';
 import { getKeyGeneratorToolCode } from './tools/keyGenerator.js';
+import { getWebdavToolCode } from './tools/webdavTool.js';
+import { getS3ToolCode } from './tools/s3Tool.js';
 
 /**
  * Get complete Tools code by integrating all tool modules
@@ -51,6 +53,16 @@ export function getToolsCode() {
       showKeyGeneratorModal();
     }
 
+    function showWebdavTool() {
+      hideToolsModal();
+      showWebdavModal();
+    }
+
+    function showS3Tool() {
+      hideToolsModal();
+      showS3Modal();
+    }
+
 ${getQRDecodeToolCode()}
 
 ${getQRGenerateToolCode()}
@@ -62,5 +74,9 @@ ${getTimestampToolCode()}
 ${getKeyCheckerToolCode()}
 
 ${getKeyGeneratorToolCode()}
+
+${getWebdavToolCode()}
+
+${getS3ToolCode()}
 `;
 }

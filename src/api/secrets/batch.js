@@ -11,7 +11,7 @@ import { getLogger } from '../../utils/logger.js';
 import { validateRequest, batchImportSchema, addSecretSchema, checkDuplicateSecret } from '../../utils/validation.js';
 import { createJsonResponse, createErrorResponse } from '../../utils/response.js';
 import { checkRateLimit, getClientIdentifier, createRateLimitResponse, RATE_LIMIT_PRESETS } from '../../utils/rateLimit.js';
-import { ValidationError, StorageError, CryptoError, errorToResponse, logError } from '../../utils/errors.js';
+import { ValidationError, StorageError, CryptoError, ConfigurationError, errorToResponse, logError } from '../../utils/errors.js';
 import { KV_KEYS } from '../../utils/constants.js';
 
 /**
@@ -27,9 +27,10 @@ import { KV_KEYS } from '../../utils/constants.js';
  *
  * @param {Request} request - HTTP 请求对象
  * @param {Object} env - Cloudflare Workers 环境对象
+ * @param {Object} [ctx] - Cloudflare Workers 执行上下文
  * @returns {Response} 批量导入结果响应
  */
-export async function handleBatchAddSecrets(request, env) {
+export async function handleBatchAddSecrets(request, env, ctx) {
 	const logger = getLogger(env);
 
 	try {
@@ -125,7 +126,7 @@ export async function handleBatchAddSecrets(request, env) {
 
 		// 一次性保存所有密钥到KV存储（自动排序）
 		// 🔄 触发事件驱动备份（批量导入使用 immediate: true 强制立即备份）
-		await saveSecretsToKV(env, existingSecrets, 'batch-import', { immediate: true });
+		await saveSecretsToKV(env, existingSecrets, 'batch-import', { immediate: true }, ctx);
 
 		logger.info('✅ 批量导入完成', {
 			successCount,
@@ -147,7 +148,12 @@ export async function handleBatchAddSecrets(request, env) {
 		);
 	} catch (error) {
 		// 如果是已知的错误类型，记录并转换
-		if (error instanceof ValidationError || error instanceof StorageError || error instanceof CryptoError) {
+		if (
+			error instanceof ValidationError ||
+			error instanceof StorageError ||
+			error instanceof CryptoError ||
+			error instanceof ConfigurationError
+		) {
 			logError(error, logger, { operation: 'handleBatchAddSecrets' });
 			return errorToResponse(error, request);
 		}

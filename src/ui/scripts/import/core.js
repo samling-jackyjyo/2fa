@@ -120,15 +120,26 @@ export function getPreviewImportCode() {
       }
       // 检测并解析JSON格式
       else if (text.trim().startsWith('{') || text.trim().startsWith('[')) {
+        let jsonData;
+
         try {
-          const jsonData = JSON.parse(text);
+          jsonData = JSON.parse(text);
+        } catch (jsonError) {
+          console.log('JSON解析失败，按OTPAuth URL格式解析:', jsonError.message);
+        }
+
+        if (jsonData) {
+          try {
           lines = parseJsonImport(jsonData);
           if (lines.length === 0) {
             showCenterToast('❌', '未找到有效的密钥数据');
             return;
           }
-        } catch (jsonError) {
-          console.log('JSON解析失败,按OTPAuth URL格式解析:', jsonError.message);
+          } catch (parseError) {
+            console.error('JSON导入解析失败:', parseError);
+            showCenterToast('❌', parseError.message || '未识别的 JSON 导入格式');
+            return;
+          }
         }
       }
       // 检测并解析CSV格式
@@ -199,8 +210,11 @@ export function getPreviewImportCode() {
               }
             }
 
-            if (secret && serviceName) {
-              if (validateBase32(secret)) {
+            // 清理密钥中的空格和分隔符
+            const cleanedSecret = secret ? secret.replace(/[\\s\\-+]/g, '') : secret;
+
+            if (cleanedSecret && serviceName) {
+              if (validateBase32(cleanedSecret)) {
                 item.className += ' valid';
 
                 let displayInfo = serviceName;
@@ -216,7 +230,7 @@ export function getPreviewImportCode() {
                 importPreviewData.push({
                   serviceName: serviceName,
                   account: account,
-                  secret: secret.toUpperCase(),
+                  secret: cleanedSecret.toUpperCase(),
                   type: type,
                   digits: digits,
                   period: period,
@@ -256,6 +270,7 @@ export function getPreviewImportCode() {
 
       updateImportStats(validCount, invalidCount, skippedCount);
       previewDiv.style.display = 'block';
+      executeBtn.textContent = '📥 导入';
       executeBtn.disabled = validCount === 0;
     }
 `;

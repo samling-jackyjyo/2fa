@@ -253,8 +253,8 @@ export const restoreBackupSchema = new Schema({
 		type: 'string',
 		message: '备份键不能为空',
 		validator: (v) => {
-			if (!v.startsWith('backup_') || !v.endsWith('.json')) {
-				return '备份文件名格式不正确，应为 backup_YYYY-MM-DD_HH-MM-SS.json';
+			if (!/^backup_\d{4}-\d{2}-\d{2}(?:_[\w-]+)?\.json$/.test(v)) {
+				return '备份文件名格式不正确，应为 backup_YYYY-MM-DD_HH-MM-SS-mmm-xxxx.json';
 			}
 			return true;
 		},
@@ -264,6 +264,107 @@ export const restoreBackupSchema = new Schema({
 		type: 'boolean',
 		default: false,
 	},
+});
+
+/**
+ * WebDAV 配置验证规则
+ */
+export const webdavConfigSchema = new Schema({
+	id: { required: false, type: 'string' },
+	name: {
+		required: true,
+		type: 'string',
+		message: '目标名称不能为空',
+		transform: (v) => v.trim(),
+		validator: (v) => {
+			if (v.trim().length > 30) {
+				return `目标名称过长，最多支持30个字符（当前：${v.trim().length}）`;
+			}
+			return true;
+		},
+	},
+	url: {
+		required: true,
+		type: 'string',
+		message: 'WebDAV URL 不能为空',
+		validator: (v) => {
+			try {
+				const u = new URL(v);
+				return u.protocol === 'https:' || 'URL 必须使用 HTTPS';
+			} catch {
+				return 'URL 格式无效';
+			}
+		},
+		transform: (v) => v.replace(/\/+$/, ''),
+	},
+	username: { required: true, type: 'string', message: '用户名不能为空' },
+	password: { required: false, type: 'string', default: '' },
+	path: {
+		required: false,
+		type: 'string',
+		default: '/',
+		transform: (v) => {
+			const p = v.trim().replace(/\/+/g, '/').replace(/\/+$/, '');
+			return p.startsWith('/') ? p || '/' : '/' + p;
+		},
+	},
+});
+
+/**
+ * S3 配置验证规则
+ */
+export const s3ConfigSchema = new Schema({
+	id: { required: false, type: 'string' },
+	name: {
+		required: true,
+		type: 'string',
+		message: '目标名称不能为空',
+		transform: (v) => v.trim(),
+		validator: (v) => {
+			if (v.trim().length > 30) {
+				return `目标名称过长，最多支持30个字符（当前：${v.trim().length}）`;
+			}
+			return true;
+		},
+	},
+	endpoint: {
+		required: true,
+		type: 'string',
+		message: 'Endpoint 不能为空',
+		validator: (v) => {
+			try {
+				const u = new URL(v);
+				return u.protocol === 'https:' || 'URL 必须使用 HTTPS';
+			} catch {
+				return 'URL 格式无效';
+			}
+		},
+		transform: (v) => v.replace(/\/+$/, ''),
+	},
+	bucket: { required: true, type: 'string', message: 'Bucket 不能为空' },
+	region: { required: false, type: 'string', default: 'auto' },
+	accessKeyId: { required: true, type: 'string', message: 'Access Key ID 不能为空' },
+	secretAccessKey: { required: false, type: 'string', default: '' },
+	prefix: {
+		required: false,
+		type: 'string',
+		default: '',
+		transform: (v) => {
+			if (!v || !v.trim()) {
+				return '';
+			}
+			const p = v.trim().replace(/\/+/g, '/').replace(/^\/+/, '').replace(/\/+$/, '');
+			return p ? p + '/' : '';
+		},
+	},
+});
+
+/**
+ * 目标启用/禁用切换验证规则
+ */
+export const toggleDestinationSchema = new Schema({
+	id: { required: true, type: 'string', message: '目标 ID 不能为空' },
+	enabled: { required: true, type: 'boolean', message: '启用状态不能为空' },
 });
 
 // ==================== 原有验证函数 ====================

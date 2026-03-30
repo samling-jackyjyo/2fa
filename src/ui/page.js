@@ -178,7 +178,7 @@ function getHTMLBody() {
   
   
   <!-- 二维码扫描器模态框 -->
-  <div id="qrScanModal" class="modal">
+  <div id="qrScanModal" class="modal fab-modal">
     <div class="modal-content">
       <div class="modal-header">
         <h2>📷 扫描二维码添加密钥</h2>
@@ -225,7 +225,7 @@ function getHTMLBody() {
   </div>
   
   <!-- 添加/编辑密钥模态框 -->
-  <div id="secretModal" class="modal">
+  <div id="secretModal" class="modal fab-modal">
     <div class="modal-content">
       <div class="modal-header">
         <h2 id="modalTitle">添加新密钥</h2>
@@ -320,7 +320,7 @@ function getHTMLBody() {
   </div>
 
   <!-- 批量导入模态框 -->
-  <div id="importModal" class="modal">
+  <div id="importModal" class="modal fab-modal">
     <div class="modal-content import-modal-compact">
       <div class="modal-header">
         <h2>📥 批量导入密钥</h2>
@@ -399,7 +399,7 @@ function getHTMLBody() {
   </div>
 
   <!-- 还原配置模态框 -->
-  <div id="restoreModal" class="modal">
+  <div id="restoreModal" class="modal fab-modal">
     <div class="modal-content">
       <div class="modal-header">
         <h2>🔄 还原配置</h2>
@@ -447,7 +447,7 @@ function getHTMLBody() {
   </div>
   
   <!-- 实用工具模态框 -->
-  <div id="toolsModal" class="modal">
+  <div id="toolsModal" class="modal fab-modal">
     <div class="modal-content">
       <div class="modal-header">
         <h2>🔧 实用工具</h2>
@@ -507,7 +507,7 @@ function getHTMLBody() {
   </div>
 
   <!-- 二维码生成工具模态框 -->
-  <div id="qrGenerateModal" class="modal">
+  <div id="qrGenerateModal" class="modal fab-modal">
     <div class="modal-content">
       <div class="modal-header">
         <h2>🔄 二维码生成</h2>
@@ -543,7 +543,7 @@ function getHTMLBody() {
   </div>
   
   <!-- Base32编解码工具模态框 -->
-  <div id="base32Modal" class="modal">
+  <div id="base32Modal" class="modal fab-modal">
     <div class="modal-content">
       <div class="modal-header">
         <h2>🔐 Base32 编解码</h2>
@@ -593,7 +593,7 @@ function getHTMLBody() {
   </div>
   
   <!-- 时间戳工具模态框 -->
-  <div id="timestampModal" class="modal">
+  <div id="timestampModal" class="modal fab-modal">
     <div class="modal-content">
       <div class="modal-header">
         <h2>⏱️ 时间戳工具</h2>
@@ -639,7 +639,7 @@ function getHTMLBody() {
   </div>
   
   <!-- 密钥检查器模态框 -->
-  <div id="keyCheckModal" class="modal">
+  <div id="keyCheckModal" class="modal fab-modal">
     <div class="modal-content">
       <div class="modal-header">
         <h2>✅ 密钥检查器</h2>
@@ -672,7 +672,7 @@ function getHTMLBody() {
   </div>
   
   <!-- 二维码解析工具模态框 -->
-  <div id="qrDecodeModal" class="modal">
+  <div id="qrDecodeModal" class="modal fab-modal">
     <div class="modal-content">
       <div class="modal-header">
         <h2>🔍 二维码解析</h2>
@@ -726,7 +726,7 @@ function getHTMLBody() {
   </div>
   
   <!-- 密钥生成器模态框 -->
-  <div id="keyGeneratorModal" class="modal">
+  <div id="keyGeneratorModal" class="modal fab-modal">
     <div class="modal-content">
       <div class="modal-header">
         <h2>🎲 密钥生成器</h2>
@@ -760,7 +760,284 @@ function getHTMLBody() {
 
     </div>
   </div>
-  
+
+  <!-- WebDAV 同步配置模态框 -->
+  <div id="webdavModal" class="modal fab-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>☁️ WebDAV 同步</h2>
+        <button class="close-btn" onclick="hideWebdavModal()">&times;</button>
+      </div>
+
+      <div class="tool-section">
+        <!-- 目标列表 -->
+        <div id="webdavDestinationList" style="margin-bottom: 15px;"></div>
+
+        <!-- 添加按钮 -->
+        <button class="btn btn-primary" id="webdavAddBtn" onclick="showWebdavForm()" style="width: 100%; padding: 10px; font-size: 13px; margin-bottom: 15px;">+ 添加 WebDAV 目标</button>
+
+        <!-- 配置表单（默认隐藏） -->
+        <div id="webdavFormArea" style="display: none;">
+          <div style="padding: 15px; border-radius: 8px; border: 1px solid var(--border-primary); background: var(--bg-secondary); margin-bottom: 12px;">
+            <input type="hidden" id="webdavEditId" value="" />
+
+            <div style="margin-bottom: 12px;">
+              <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-primary); font-size: 13px;">目标名称</label>
+              <input type="text" id="webdavName" class="secret-input" placeholder="例如：家庭NAS、云盘" maxlength="30" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-primary); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; box-sizing: border-box;" />
+            </div>
+
+            <div style="margin-bottom: 12px;">
+              <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-primary); font-size: 13px;">服务器地址</label>
+              <input type="url" id="webdavUrl" class="secret-input" placeholder="https://your-server.com/dav/" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-primary); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; box-sizing: border-box;" />
+            </div>
+
+            <div style="margin-bottom: 12px;">
+              <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-primary); font-size: 13px;">用户名</label>
+              <input type="text" id="webdavUsername" class="secret-input" placeholder="请输入用户名" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-primary); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; box-sizing: border-box;" />
+            </div>
+
+            <div style="margin-bottom: 12px;">
+              <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-primary); font-size: 13px;">密码</label>
+              <input type="password" id="webdavPassword" class="secret-input" placeholder="请输入密码" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-primary); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; box-sizing: border-box;" />
+            </div>
+
+            <div style="margin-bottom: 15px;">
+              <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-primary); font-size: 13px;">远程路径</label>
+              <input type="text" id="webdavPath" class="secret-input" value="/" placeholder="/" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-primary); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; box-sizing: border-box;" />
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-bottom: 8px;">
+              <button class="btn btn-info" id="webdavTestBtn" onclick="testWebdavConnection()" style="flex: 1; padding: 10px; font-size: 13px;">测试连接</button>
+              <button class="btn btn-primary" id="webdavSaveBtn" onclick="saveWebdavConfig()" style="flex: 1; padding: 10px; font-size: 13px;">保存</button>
+            </div>
+            <button class="btn" onclick="hideWebdavForm()" style="width: 100%; padding: 10px; font-size: 13px; background: var(--bg-primary); color: var(--text-secondary); border: 1px solid var(--border-primary);">取消</button>
+          </div>
+        </div>
+
+        <div class="advanced-info" style="margin-top: 10px; padding: 12px; border-radius: 6px; font-size: 12px; color: var(--text-tertiary); background: var(--bg-secondary); line-height: 1.6;">
+          配置 WebDAV 后，每次备份（事件驱动、定时、手动）都会自动推送到所有已启用的 WebDAV 目标。支持 NextCloud、Alist 等。
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- S3 同步配置模态框 -->
+  <div id="s3Modal" class="modal fab-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>🪣 S3 同步</h2>
+        <button class="close-btn" onclick="hideS3Modal()">&times;</button>
+      </div>
+
+      <div class="tool-section">
+        <!-- 目标列表 -->
+        <div id="s3DestinationList" style="margin-bottom: 15px;"></div>
+
+        <!-- 添加按钮 -->
+        <button class="btn btn-primary" id="s3AddBtn" onclick="showS3Form()" style="width: 100%; padding: 10px; font-size: 13px; margin-bottom: 15px;">+ 添加 S3 目标</button>
+
+        <!-- 配置表单（默认隐藏） -->
+        <div id="s3FormArea" style="display: none;">
+          <div style="padding: 15px; border-radius: 8px; border: 1px solid var(--border-primary); background: var(--bg-secondary); margin-bottom: 12px;">
+            <input type="hidden" id="s3EditId" value="" />
+
+            <div style="margin-bottom: 12px;">
+              <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-primary); font-size: 13px;">目标名称</label>
+              <input type="text" id="s3Name" class="secret-input" placeholder="例如：R2备份、MinIO" maxlength="30" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-primary); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; box-sizing: border-box;" />
+            </div>
+
+            <div style="margin-bottom: 12px;">
+              <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-primary); font-size: 13px;">Endpoint</label>
+              <input type="url" id="s3Endpoint" class="secret-input" placeholder="https://s3.amazonaws.com" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-primary); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; box-sizing: border-box;" />
+            </div>
+
+            <div style="margin-bottom: 12px;">
+              <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-primary); font-size: 13px;">Bucket</label>
+              <input type="text" id="s3Bucket" class="secret-input" placeholder="my-backup-bucket" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-primary); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; box-sizing: border-box;" />
+            </div>
+
+            <div style="margin-bottom: 12px;">
+              <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-primary); font-size: 13px;">Region</label>
+              <input type="text" id="s3Region" class="secret-input" value="auto" placeholder="auto" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-primary); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; box-sizing: border-box;" />
+            </div>
+
+            <div style="margin-bottom: 12px;">
+              <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-primary); font-size: 13px;">Access Key ID</label>
+              <input type="text" id="s3AccessKeyId" class="secret-input" placeholder="请输入 Access Key ID" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-primary); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; box-sizing: border-box;" />
+            </div>
+
+            <div style="margin-bottom: 12px;">
+              <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-primary); font-size: 13px;">Secret Access Key</label>
+              <input type="password" id="s3SecretAccessKey" class="secret-input" placeholder="请输入 Secret Access Key" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-primary); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; box-sizing: border-box;" />
+            </div>
+
+            <div style="margin-bottom: 15px;">
+              <label style="display: block; font-weight: 600; margin-bottom: 6px; color: var(--text-primary); font-size: 13px;">存储路径前缀</label>
+              <input type="text" id="s3Prefix" class="secret-input" value="" placeholder="2fa-backup/（可选）" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-primary); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; box-sizing: border-box;" />
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-bottom: 8px;">
+              <button class="btn btn-info" id="s3TestBtn" onclick="testS3Connection()" style="flex: 1; padding: 10px; font-size: 13px;">测试连接</button>
+              <button class="btn btn-primary" id="s3SaveBtn" onclick="saveS3Config()" style="flex: 1; padding: 10px; font-size: 13px;">保存</button>
+            </div>
+            <button class="btn" onclick="hideS3Form()" style="width: 100%; padding: 10px; font-size: 13px; background: var(--bg-primary); color: var(--text-secondary); border: 1px solid var(--border-primary);">取消</button>
+          </div>
+        </div>
+
+        <div class="advanced-info" style="margin-top: 10px; padding: 12px; border-radius: 6px; font-size: 12px; color: var(--text-tertiary); background: var(--bg-secondary); line-height: 1.6;">
+          配置 S3 后，每次备份（事件驱动、定时、手动）都会自动推送到所有已启用的 S3 兼容存储。支持 AWS S3、Cloudflare R2、MinIO、阿里云 OSS 等。
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 设置模态框 -->
+  <div id="settingsModal" class="modal fab-modal-lg">
+    <div class="modal-content settings-modal-content">
+      <div class="modal-header">
+        <h2>设置</h2>
+        <button class="close-btn" onclick="hideSettingsModal()">&times;</button>
+      </div>
+      <div class="settings-layout">
+        <div class="settings-tabs">
+          <div class="settings-tab active" data-tab="security" onclick="switchSettingsTab('security')">
+            <span class="settings-tab-icon">🔒</span>
+            <span class="settings-tab-text">账户安全</span>
+          </div>
+          <div class="settings-tab" data-tab="sync" onclick="switchSettingsTab('sync')">
+            <span class="settings-tab-icon">☁️</span>
+            <span class="settings-tab-text">同步设置</span>
+          </div>
+          <div class="settings-tab" data-tab="preferences" onclick="switchSettingsTab('preferences')">
+            <span class="settings-tab-icon">🎨</span>
+            <span class="settings-tab-text">偏好设置</span>
+          </div>
+        </div>
+        <div class="settings-content">
+          <!-- 账户安全面板 -->
+          <div class="settings-panel active" data-panel="security">
+            <div class="settings-section">
+              <h3 class="settings-section-title">修改密码</h3>
+              <div class="settings-form">
+                <div class="settings-field">
+                  <label>当前密码</label>
+                  <input type="password" id="settingsCurrentPassword" placeholder="请输入当前密码" autocomplete="current-password" />
+                </div>
+                <div class="settings-field">
+                  <label>新密码</label>
+                  <input type="password" id="settingsNewPassword" placeholder="请输入新密码" autocomplete="new-password" />
+                </div>
+                <div class="settings-field">
+                  <label>确认新密码</label>
+                  <input type="password" id="settingsConfirmPassword" placeholder="请再次输入新密码" autocomplete="new-password" />
+                </div>
+                <div id="changePasswordResult" class="change-password-result" style="display: none;"></div>
+                <button class="btn btn-primary" id="changePasswordBtn" onclick="changePassword()" style="width: 100%; padding: 10px; font-size: 14px; border-radius: 8px;">修改密码</button>
+              </div>
+            </div>
+            <div class="settings-divider"></div>
+            <div class="settings-section">
+              <h3 class="settings-section-title">退出登录</h3>
+              <p class="settings-desc">退出当前账户，需要重新输入密码登录。</p>
+              <button class="btn btn-danger" onclick="logout()" style="width: 100%; padding: 10px; font-size: 14px; border-radius: 8px;">退出登录</button>
+            </div>
+          </div>
+
+          <!-- 同步设置面板 -->
+          <div class="settings-panel" data-panel="sync">
+            <div class="settings-section">
+              <div class="sync-card" onclick="openWebdavFromSettings()">
+                <div class="sync-card-header">
+                  <div class="sync-card-info">
+                    <span class="sync-card-icon">☁️</span>
+                    <div>
+                      <div class="sync-card-title">WebDAV 同步</div>
+                      <div class="sync-card-desc">自动推送备份到 WebDAV 服务器</div>
+                    </div>
+                  </div>
+                  <span id="settingsWebdavStatus" class="sync-status not-configured">未配置</span>
+                </div>
+              </div>
+            </div>
+            <div class="settings-section">
+              <div class="sync-card" onclick="openS3FromSettings()">
+                <div class="sync-card-header">
+                  <div class="sync-card-info">
+                    <span class="sync-card-icon">🪣</span>
+                    <div>
+                      <div class="sync-card-title">S3 同步</div>
+                      <div class="sync-card-desc">自动推送备份到 S3 兼容存储</div>
+                    </div>
+                  </div>
+                  <span id="settingsS3Status" class="sync-status not-configured">未配置</span>
+                </div>
+              </div>
+            </div>
+            <div class="settings-info-box">
+              配置同步后，每次备份（事件驱动、定时、手动）都会自动推送到远程存储。推送失败不影响本地备份。
+            </div>
+          </div>
+
+          <!-- 偏好设置面板 -->
+          <div class="settings-panel" data-panel="preferences">
+            <div class="settings-section">
+              <h3 class="settings-section-title">主题模式</h3>
+              <div class="theme-options">
+                <label class="theme-option">
+                  <input type="radio" name="settingsTheme" value="light" onchange="applyThemeFromSettings('light')" />
+                  <span class="theme-option-label">☀️ 浅色模式</span>
+                </label>
+                <label class="theme-option">
+                  <input type="radio" name="settingsTheme" value="dark" onchange="applyThemeFromSettings('dark')" />
+                  <span class="theme-option-label">🌙 深色模式</span>
+                </label>
+                <label class="theme-option">
+                  <input type="radio" name="settingsTheme" value="auto" onchange="applyThemeFromSettings('auto')" />
+                  <span class="theme-option-label">🌓 跟随系统</span>
+                </label>
+              </div>
+            </div>
+            <div class="settings-divider"></div>
+            <div class="settings-section">
+              <h3 class="settings-section-title">默认导出格式</h3>
+              <p class="settings-desc">设置批量导出密钥时的默认格式。</p>
+              <select id="settingsDefaultExportFormat" class="settings-select" onchange="saveDefaultExportFormat()">
+                <option value="json">JSON</option>
+                <option value="txt">TXT 文本</option>
+                <option value="csv">CSV 表格</option>
+                <option value="html">HTML 网页</option>
+              </select>
+            </div>
+            <div class="settings-divider"></div>
+            <div class="settings-section">
+              <h3 class="settings-section-title">登录有效期</h3>
+              <p class="settings-desc">设置登录后 Token 的有效天数，修改后下次登录生效。</p>
+              <div class="settings-inline-group">
+                <input type="number" id="settingsJwtExpiryDays" class="settings-input" min="1" max="365" value="30" />
+                <span class="settings-unit">天</span>
+                <button class="btn btn-sm" onclick="saveJwtExpiryDays()">保存</button>
+              </div>
+              <p id="settingsJwtExpiryResult" class="settings-result" style="display:none;"></p>
+            </div>
+            <div class="settings-divider"></div>
+            <div class="settings-section">
+              <h3 class="settings-section-title">备份保留数量</h3>
+              <p class="settings-desc">设置自动清理时最多保留的备份数量，设为 0 表示不限制。</p>
+              <div class="settings-inline-group">
+                <input type="number" id="settingsMaxBackups" class="settings-input" min="0" max="1000" value="100" />
+                <span class="settings-unit">条</span>
+                <button class="btn btn-sm" onclick="saveMaxBackups()">保存</button>
+              </div>
+              <p id="settingsMaxBackupsResult" class="settings-result" style="display:none;"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 二维码模态框 -->
   <div id="qrModal" class="modal" style="display: none;">
     <div class="modal-content">
@@ -768,15 +1045,15 @@ function getHTMLBody() {
         <h2 id="qrTitle">二维码</h2>
         <button class="close-btn" onclick="hideQRModal()">&times;</button>
       </div>
-      
+
       <div class="qr-subtitle-section">
         <p id="qrSubtitle">扫描此二维码导入到其他2FA应用</p>
       </div>
-      
+
       <div class="qr-code-container">
         <!-- 二维码将在这里动态生成 -->
       </div>
-      
+
       <div class="qr-info">
         💡 使用任意2FA应用扫描二维码即可添加此账户<br>
         支持：Google Authenticator、Microsoft Authenticator、Authy等
@@ -793,7 +1070,7 @@ function getHTMLBody() {
   </div>
 
   <!-- 导出格式选择模态框 -->
-  <div id="exportFormatModal" class="modal">
+  <div id="exportFormatModal" class="modal fab-modal">
     <div class="modal-content export-modal-compact">
       <div class="modal-header">
         <h2>选择导出格式</h2>
@@ -961,7 +1238,7 @@ function getHTMLBody() {
   </div>
 
   <!-- 二级格式选择模态框 -->
-  <div id="subFormatModal" class="modal">
+  <div id="subFormatModal" class="modal fab-modal-sm">
     <div class="modal-content sub-format-modal">
       <div class="modal-header">
         <h2 id="subFormatTitle">选择导出格式</h2>
@@ -974,8 +1251,8 @@ function getHTMLBody() {
   </div>
 
   <!-- FreeOTP 原版导出密码模态框 -->
-  <div id="freeotpExportModal" class="modal">
-    <div class="modal-content" style="max-width: 400px;">
+  <div id="freeotpExportModal" class="modal fab-modal-sm">
+    <div class="modal-content">
       <div class="modal-header">
         <h2>🔒 FreeOTP 加密导出</h2>
         <button class="close-btn" onclick="hideFreeOTPExportModal()">&times;</button>
@@ -1004,8 +1281,8 @@ function getHTMLBody() {
   </div>
 
   <!-- TOTP Authenticator 导出密码模态框 -->
-  <div id="totpAuthExportModal" class="modal">
-    <div class="modal-content" style="max-width: 400px;">
+  <div id="totpAuthExportModal" class="modal fab-modal-sm">
+    <div class="modal-content">
       <div class="modal-header">
         <h2>⏱️ TOTP Authenticator 加密导出</h2>
         <button class="close-btn" onclick="hideTOTPAuthExportModal()">&times;</button>
@@ -1034,8 +1311,8 @@ function getHTMLBody() {
   </div>
 
   <!-- 备份导出格式选择模态框 -->
-  <div id="backupExportFormatModal" class="modal">
-    <div class="modal-content" style="max-width: 600px;">
+  <div id="backupExportFormatModal" class="modal fab-modal">
+    <div class="modal-content">
       <div class="modal-header">
         <h2>📤 选择备份导出格式</h2>
         <button class="close-btn" onclick="hideBackupExportFormatModal()">&times;</button>
@@ -1101,29 +1378,63 @@ function getHTMLBody() {
   </div>
 
   <!-- 登录模态框 -->
-  <div id="loginModal" class="modal" style="display: none;">
-    <div class="modal-content" style="max-width: 400px;">
-      <h2 style="text-align: center; margin-bottom: 10px; color: var(--text-primary);">🔐 身份验证</h2>
-      <p style="text-align: center; color: var(--text-secondary); margin-bottom: 20px; font-size: 14px;">
+  <div id="loginModal" class="modal login-modal">
+    <div class="modal-content login-modal-content">
+      <h2 class="login-modal-title">🔐 身份验证</h2>
+      <p class="login-modal-description">
         请输入密码以管理密钥<br>
-        <small style="color: var(--text-tertiary);">或点击"取消"使用 OTP 生成功能</small>
+        <small class="login-modal-hint">或点击"取消"使用 OTP 生成功能</small>
       </p>
       <div class="form-group">
         <label for="loginToken">密码</label>
-        <input type="password" id="loginToken" placeholder="请输入您的密码" autocomplete="current-password" name="password">
-        <div style="font-size: 12px; color: var(--text-tertiary); margin-top: 5px;">
+        <div class="login-password-wrapper">
+          <input type="password" id="loginToken" placeholder="请输入您的密码" autocomplete="current-password" name="password">
+          <button
+            type="button"
+            id="loginPasswordToggle"
+            class="login-password-toggle"
+            onclick="toggleLoginPasswordVisibility()"
+            aria-label="显示密码"
+            title="显示密码"
+          >
+            <svg
+              class="login-password-icon login-password-icon-show"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path
+                d="M12 5C7 5 2.7 8.1 1 12c1.7 3.9 6 7 11 7s9.3-3.1 11-7c-1.7-3.9-6-7-11-7Zm0 11.5A4.5 4.5 0 1 1 12 7a4.5 4.5 0 0 1 0 9.5Z"
+                fill="currentColor"
+              />
+              <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+            </svg>
+            <svg
+              class="login-password-icon login-password-icon-hide"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path
+                d="M3.3 4.7 2 6l3.1 3.1A13.7 13.7 0 0 0 1 12c1.7 3.9 6 7 11 7 2 0 3.9-.5 5.5-1.3L20.7 21l1.3-1.3L3.3 4.7Zm8.7 12.3c-2.8 0-5-2.2-5-5 0-.8.2-1.6.5-2.3l6.8 6.8c-.7.3-1.5.5-2.3.5Zm0-10c5 0 9.3 3.1 11 7a12 12 0 0 1-3.9 4.7l-2-2a5 5 0 0 0-6.8-6.8l-2-2C9.5 7.3 10.7 7 12 7Z"
+                fill="currentColor"
+              />
+            </svg>
+          </button>
+        </div>
+        <div class="login-modal-hint">
           提示：输入您设置的密码
         </div>
       </div>
-      <div class="button-group" style="margin-top: 20px; display: flex; gap: 10px;">
-        <button onclick="window.location.href='/otp'" class="btn-secondary" style="flex: 1; padding: 14px 28px; font-size: 16px; font-weight: 600;">
+      <div class="button-group login-modal-actions">
+        <button onclick="window.location.href='/otp'" class="btn btn-secondary login-modal-cancel-btn">
           取消
         </button>
-        <button onclick="handleLoginSubmit()" class="btn-primary" style="flex: 1; padding: 14px 28px; font-size: 16px; font-weight: 600;">
+        <button onclick="handleLoginSubmit()" class="btn btn-primary login-modal-submit-btn">
           登录
         </button>
       </div>
-      <div id="loginError" style="display: none; margin-top: 15px; padding: 10px; background: var(--danger-light); border-radius: 8px; color: var(--danger-dark); font-size: 14px; text-align: center;"></div>
+      <div id="loginError" class="login-modal-error"></div>
     </div>
   </div>
 
@@ -1183,6 +1494,10 @@ function getHTMLBody() {
       <div class="submenu-item" onclick="showToolsModal(); closeActionMenu();">
         <span class="item-icon">🔧</span>
         <span class="item-text">实用工具</span>
+      </div>
+      <div class="submenu-item" onclick="showSettingsModal(); closeActionMenu();">
+        <span class="item-icon">⚙️</span>
+        <span class="item-text">系统设置</span>
       </div>
     </div>
   </div>

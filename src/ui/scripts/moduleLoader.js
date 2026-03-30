@@ -3,10 +3,10 @@
  * 实现按需加载大型功能模块，优化首次加载性能
  *
  * 可延迟加载的模块：
- * - import.js (34KB/896行) - 导入功能
- * - export.js (16KB/375行) - 导出功能
- * - backup.js (355行) - 备份管理
- * - qrcode.js (29KB/786行) - 二维码生成
+ * - import 模块（src/ui/scripts/import/index.js 入口）- 导入功能
+ * - export.js - 导出功能
+ * - backup.js - 备份管理
+ * - qrcode.js - 二维码生成
  * - tools.js + 工具模块 - 工具集
  */
 
@@ -89,7 +89,7 @@ export function getModuleLoaderCode() {
         console.error(\`❌ 加载模块 \${moduleName} 失败:\`, error);
         moduleLoadState[moduleName].loading = false;
         hideLoadingToast();
-        showCenterToast(\`加载功能失败: \${error.message}\`, 'error');
+        showCenterToast('❌', \`加载功能失败: \${error.message}\`);
         throw error;
       } finally {
         moduleLoadState[moduleName].loading = false;
@@ -199,7 +199,7 @@ export function getModuleLoaderCode() {
           }
         } catch (error) {
           console.error(\`调用 \${functionName} 失败:\`, error);
-          showCenterToast(\`功能加载失败: \${error.message}\`, 'error');
+          showCenterToast('❌', \`功能加载失败: \${error.message}\`);
         }
       };
 
@@ -239,6 +239,10 @@ export function getModuleLoaderCode() {
     window.showTimestampTool = createLazyWrapper('tools', 'showTimestampTool');
     window.showKeyCheckTool = createLazyWrapper('tools', 'showKeyCheckTool');
     window.showKeyGeneratorTool = createLazyWrapper('tools', 'showKeyGeneratorTool');
+    window.showWebdavTool = createLazyWrapper('tools', 'showWebdavTool');
+    window.showS3Tool = createLazyWrapper('tools', 'showS3Tool');
+    window.showWebdavModal = createLazyWrapper('tools', 'showWebdavModal');
+    window.showS3Modal = createLazyWrapper('tools', 'showS3Modal');
 
     // 二维码功能懒加载
     window.showSecretQRCode = createLazyWrapper('qrcode', 'showSecretQRCode');
